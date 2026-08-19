@@ -1,0 +1,183 @@
+# AWS Public vs Private Services
+
+Phần này phân loại dịch vụ AWS theo **vị trí mạng và cách truy cập**, không phải theo việc dịch vụ có an toàn hay miễn phí hay không.
+
+Ý chính:
+
+```
+AWS Public Service  → nằm trong AWS Public Zone
+AWS Private Service → chạy bên trong VPC
+```
+
+## 1. AWS Public Services
+
+Public services cung cấp endpoint có thể truy cập qua mạng công cộng.
+
+Ví dụ phổ biến:
+
+- Amazon S3
+- DynamoDB
+- SQS
+- SNS
+- Các API endpoint của AWS
+
+Ví dụ endpoint:
+
+```
+https://s3.us-east-1.amazonaws.com
+```
+
+Có thể gọi từ:
+
+- Máy tính của bạn qua Internet.
+- AWS CLI.
+- Server bên ngoài AWS.
+- Tài nguyên bên trong VPC nếu có đường mạng thích hợp.
+
+### “Public” không có nghĩa ai cũng truy cập được
+
+Đây là điểm dễ nhầm nhất:
+
+```
+Public endpoint ≠ public permission
+```
+
+Endpoint của S3 có thể kết nối được qua Internet, nhưng AWS vẫn kiểm tra:
+
+- IAM identity
+- Access Key hoặc temporary credentials
+- IAM policy
+- Bucket policy
+- Các resource policy khác
+
+Ví dụ:
+
+```
+aws s3 ls
+```
+
+Máy có thể kết nối tới public endpoint của S3, nhưng nếu identity không có quyền thì AWS trả về `AccessDenied`.
+
+## 2. AWS Private Services
+
+Private services hoặc tài nguyên được triển khai vào bên trong **VPC** của bạn.
+
+Ví dụ:
+
+- EC2 instance
+- RDS database
+- ElastiCache
+- Tài nguyên sử dụng private IP trong VPC
+- Internal Load Balancer
+
+VPC là một mạng riêng logic trong AWS. Tài nguyên trong VPC thường có private IP:
+
+```
+10.0.1.10
+172.31.5.20
+```
+
+Private IP không được định tuyến trực tiếp trên Internet.
+
+Muốn truy cập private resource, bạn thường cần:
+
+- Kết nối từ tài nguyên khác trong VPC.
+- VPN hoặc Direct Connect.
+- Bastion host hoặc Systems Manager.
+- Load Balancer.
+- Thiết kế routing và security phù hợp.
+
+## 3. Public IPv4 không biến EC2 thành public service
+
+Một EC2 instance thuộc nhóm tài nguyên chạy trong VPC, kể cả khi nó được cấp public IPv4.
+
+```
+Internet
+   │
+Internet Gateway
+   │
+Public IPv4 ↔ Private IPv4
+   │
+EC2 trong VPC
+```
+
+EC2 vẫn nằm trong VPC. Public IPv4 và Internet Gateway chỉ cung cấp khả năng giao tiếp với Internet.
+
+Ngoài ra còn phải có:
+
+- Route phù hợp, ví dụ `0.0.0.0/0 → Internet Gateway`.
+- Security Group cho phép traffic.
+- Network ACL không chặn traffic.
+- Public IPv4 hoặc Elastic IP phù hợp.
+
+## ll4. EC2 service và EC2 instance khác nhau
+
+Đây là một bẫy khái niệm quan trọng:
+
+- **EC2 service API** là public endpoint dùng để tạo, dừng hoặc quản lý instance.
+- **EC2 instance** là tài nguyên nằm trong VPC.
+
+Ví dụ:
+
+```
+aws ec2 describe-instances
+```
+
+CLI gọi tới public API endpoint của dịch vụ EC2. API sau đó trả về thông tin các instance đang chạy trong VPC.
+
+```
+Laptop
+  │
+  └── Public EC2 API → quản lý → EC2 instance trong VPC
+```
+
+## 5. Private resource truy cập public service
+
+Giả sử EC2 trong private subnet cần tải một object từ S3.
+
+### Cách 1: Đi qua Internet/NAT
+
+```
+EC2 private subnet
+→ NAT Gateway
+→ Internet Gateway
+→ S3 public endpoint
+```
+
+EC2 không cần public IP, nhưng cần NAT Gateway và routing phù hợp.
+
+### Cách 2: Dùng VPC Endpoint
+
+```
+EC2 private subnet
+→ VPC Endpoint
+→ S3
+```
+
+Traffic không cần đi qua Internet hoặc NAT Gateway.
+
+Đây thường là lựa chọn tốt hơn về:
+
+- Bảo mật
+- Kiến trúc mạng
+- Chi phí NAT
+- Khả năng kiểm soát truy cập
+
+Việc dùng VPC Endpoint không biến S3 thành tài nguyên nằm trong VPC. S3 vẫn là public AWS service; endpoint chỉ tạo đường truy cập riêng tới dịch vụ đó.
+
+## 6. Sơ đồ tổng hợp
+                         AWS
+ ┌─────────────────────────────────────────────────┐
+ │                                                 │
+ │  AWS Public Zone                                │
+ │  ┌───────────────────────────────────────────┐  │
+ │  │ S3 │ DynamoDB │ SQS │ SNS │ Service APIs │  │
+ │  └───────────────────────────────────────────┘  │
+ │                    ▲                            │
+ │           Internet/NAT hoặc Endpoint            │
+ │                    │                            │
+ │  VPC – mạng riêng của khách hàng                │
+ │  ┌───────────────────────────────────────────┐  │
+ │  │ EC2 │ RDS │ ElastiCache │ Private IPs    │  │
+ │  └───────────────────────────────────────────┘  │
+ └─────────────────────────────────────────────────┘

@@ -1,0 +1,7 @@
+2026-08-19 13:25:40,464 [INFO] Bắt đầu đăng nhập...
+2026-08-19 13:25:41,234 [INFO] Truy cập: https://portal.f88.vn:6082/php/uid.php?vsys=1&rule=0&token=
+2026-08-19 13:25:43,837 [INFO] Đã điền username
+2026-08-19 13:25:45,923 [INFO] Đã điền password
+2026-08-19 13:25:46,603 [INFO] Đã bấm nút đăng nhập
+2026-08-19 13:25:46,612 [WARNING] Không xác định được trạng thái đăng nhập, kiểm tra thủ công
+2026-08-19 13:25:46,662 [INFO] Đã lưu screenshot: screenshot_after_login.png
